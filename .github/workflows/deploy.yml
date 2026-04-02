@@ -158,11 +158,21 @@ jobs:
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           sed -i "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP|g" _site/index.html
           
-          # Replace files placeholder with actual file list
-          FILES_HTML=$(find . -type f \( -name "*.java" -o -name "*.md" \) | grep -v ".github" | grep -v "_site" | head -15 | sed 's|^\./||' | while read f; do echo "• $f<br>"; done || echo "• README.md<br>")
-          # Escape for sed
-          FILES_HTML_ESCAPED=$(echo "$FILES_HTML" | sed 's/[&/\]/\\&/g')
-          sed -i "s|FILES_PLACEHOLDER|$FILES_HTML_ESCAPED|g" _site/index.html
+          # Replace files placeholder with actual file list using a temp file approach
+          FILES_HTML=""
+          while IFS= read -r f; do
+            if [ -n "$f" ]; then
+              FILES_HTML="${FILES_HTML}• ${f}<br>"
+            fi
+          done < <(find . -type f \( -name "*.java" -o -name "*.md" \) | grep -v ".github" | grep -v "_site" | head -15 | sed 's|^\./||')
+          
+          if [ -z "$FILES_HTML" ]; then
+            FILES_HTML="• README.md<br>"
+          fi
+          
+          # Use awk instead of sed to avoid escaping issues
+          awk -v files="$FILES_HTML" '{gsub(/FILES_PLACEHOLDER/, files); print}' _site/index.html > _site/index.html.tmp
+          mv _site/index.html.tmp _site/index.html
           
           echo "✅ Deployment page created with feature branch content"
 
